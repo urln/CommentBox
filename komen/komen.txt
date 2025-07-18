@@ -1,0 +1,145 @@
+<%@ Page Language="C#" AutoEventWireup="true" %>
+<%@ Import Namespace="System.IO" %>
+<script runat="server">
+protected void Page_Load(object sender, EventArgs e)
+{
+string folderPath = Server.MapPath("./");
+if (!Directory.Exists(folderPath))
+{
+Directory.CreateDirectory(folderPath);
+}
+if (!IsPostBack)
+{
+DisplayExistingFiles();
+
+if (Request.Cookies["CommentUserName"] != null)
+{
+txtFileName.Text = Request.Cookies["CommentUserName"].Value;
+}
+}
+}
+protected void btnCreateFile_Click(object sender, EventArgs e)
+{
+string originalName = txtFileName.Text.Trim();
+string fileContent = txtFileContent.Text;
+if (!string.IsNullOrEmpty(originalName))
+{
+string fileName = originalName;
+if (!fileName.EndsWith(".txt"))
+{
+fileName += ".txt";
+}
+string filePath = Server.MapPath("./" + fileName);
+
+int counter = 1;
+while (File.Exists(filePath))
+{
+string extension = Path.GetExtension(fileName);
+string baseName = Path.GetFileNameWithoutExtension(fileName);
+
+if (baseName.Length > 0 && char.IsDigit(baseName[baseName.Length - 1]))
+{
+int lastDigitStart = baseName.Length - 1;
+while (lastDigitStart >= 0 && char.IsDigit(baseName[lastDigitStart]))
+{
+lastDigitStart--;
+}
+lastDigitStart++;
+string prefix = baseName.Substring(0, lastDigitStart);
+string numberPart = baseName.Substring(lastDigitStart);
+int existingNumber;
+if (int.TryParse(numberPart, out existingNumber))
+{
+counter = existingNumber + 1;
+baseName = prefix;
+}
+}
+fileName = string.Format("{0}{1}{2}", baseName, counter, extension);
+filePath = Server.MapPath("./" + fileName);
+counter++;
+}
+File.WriteAllText(filePath, fileContent);
+lblMessage.Text = "Komentar diterbitkan!";
+lblMessage.CssClass = "success-message";
+txtFileName.Text = originalName;
+
+HttpCookie cookie = new HttpCookie("CommentUserName", originalName);
+cookie.Expires = DateTime.Now.AddDays(30);
+Response.Cookies.Add(cookie);
+txtFileContent.Text = "";
+DisplayExistingFiles();
+}
+else
+{
+lblMessage.Text = "Nama tidak boleh kosong!";
+lblMessage.CssClass = "error-message";
+}
+}
+private void DisplayExistingFiles()
+{
+string folderPath = Server.MapPath("./");
+var txtFiles = Directory.GetFiles(folderPath, "*.txt")
+.Select(f => new FileInfo(f))
+.OrderByDescending(f => f.CreationTime)
+.ToList();
+fileListDiv.InnerHtml = "";
+string currentFolderName = Path.GetFileName(folderPath.TrimEnd(Path.DirectorySeparatorChar));
+fileListDiv.InnerHtml += "<h3>Komentar id: #" + Server.HtmlEncode(currentFolderName) + "<a href='../' target='_blank'>New Id</a></h3>";
+foreach (var file in txtFiles)
+{
+string fileName = Path.GetFileNameWithoutExtension(file.Name);
+string displayName = GetOriginalName(fileName); // Hanya tampilkan nama asli
+string fileContent = File.ReadAllText(file.FullName);
+string createdTime = file.CreationTime.ToString("HH:mm dd/MM/yyyy");
+fileListDiv.InnerHtml += "<div class='file-item'>";
+fileListDiv.InnerHtml += "<h3 class='file-title'>" + Server.HtmlEncode(displayName) +
+"<br/><span class='file-date'> Berkomentar: " + createdTime + "</span></h3>";
+fileListDiv.InnerHtml += "<pre class='file-content'>" + Server.HtmlEncode(fileContent) + "</pre>";
+fileListDiv.InnerHtml += "<hr class='file-separator'/>";
+fileListDiv.InnerHtml += "</div>";
+}
+}
+private string GetOriginalName(string fileName)
+{
+if (fileName.Length > 0 && char.IsDigit(fileName[fileName.Length - 1]))
+{
+int lastNonDigit = fileName.Length - 1;
+while (lastNonDigit >= 0 && char.IsDigit(fileName[lastNonDigit]))
+{
+lastNonDigit--;
+}
+if (lastNonDigit >= 0)
+{
+return fileName.Substring(0, lastNonDigit + 1);
+}
+}
+return fileName;
+}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+<title>Kotak Komentar</title>
+<link href="../komen.css" rel="stylesheet" type="text/css" media="screen" runat="server" />
+</head>
+<body>
+<div class="file-container">
+<div id="fileListDiv" runat="server"></div>
+<div class="create-file-form">
+<h3>Tulis Komentar</h3>
+<form id="form1" runat="server">
+<div class="form-group">
+<label for="txtFileName">Nama:</label>
+<asp:TextBox ID="txtFileName" runat="server" placeholder="Ketik nama Anda di sini"></asp:TextBox>
+</div>
+<div class="form-group">
+<label for="txtFileContent">Isi Komentar:</label>
+<asp:TextBox ID="txtFileContent" runat="server" TextMode="MultiLine" placeholder="Ketik komentar Anda di sini"></asp:TextBox>
+</div>
+<asp:Button ID="btnCreateFile" runat="server" Text="Kirim" OnClick="btnCreateFile_Click" />
+<asp:Label ID="lblMessage" runat="server" Text="" CssClass=""></asp:Label>
+</form>
+</div>
+</div>
+</body>
+</html>
